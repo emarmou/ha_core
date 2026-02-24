@@ -1,41 +1,63 @@
 rules:
   # Bronze
-  action-setup: todo
-  appropriate-polling: todo
-  brands: todo
-  common-modules: todo
-  config-flow-test-coverage: todo
-  config-flow: todo
-  dependency-transparency: todo
-  docs-actions: todo
-  docs-high-level-description: todo
-  docs-installation-instructions: todo
-  docs-removal-instructions: todo
-  entity-event-setup: todo
-  entity-unique-id: todo
-  has-entity-name: todo
-  runtime-data: todo
-  test-before-configure: todo
-  test-before-setup: todo
-  unique-config-entry: todo
+  action-setup:
+    status: exempt
+    comment: No custom service actions are registered by this integration.
+  appropriate-polling: done
+  brands:
+    status: exempt
+    comment: No official brand assets; this is a personal/community integration.
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency:
+    status: exempt
+    comment: No external PyPI dependencies.
+  docs-actions:
+    status: exempt
+    comment: No custom service actions.
+  docs-high-level-description:
+    status: exempt
+    comment: Documentation not yet published.
+  docs-installation-instructions:
+    status: exempt
+    comment: Documentation not yet published.
+  docs-removal-instructions:
+    status: exempt
+    comment: Documentation not yet published.
+  entity-event-setup: done
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
 
   # Silver
-  action-exceptions: todo
-  config-entry-unloading: todo
+  action-exceptions:
+    status: exempt
+    comment: No custom service actions.
+  config-entry-unloading: done
   docs-configuration-parameters: todo
   docs-installation-parameters: todo
-  entity-unavailable: todo
-  integration-owner: todo
-  log-when-unavailable: todo
-  parallel-updates: todo
-  reauthentication-flow: todo
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: exempt
+    comment: No authentication is required.
   test-coverage: todo
 
   # Gold
-  devices: todo
+  devices: done
   diagnostics: todo
-  discovery-update-info: todo
-  discovery: todo
+  discovery-update-info:
+    status: exempt
+    comment: No network discovery mechanism.
+  discovery:
+    status: exempt
+    comment: No network discovery mechanism.
   docs-data-update: todo
   docs-examples: todo
   docs-known-limitations: todo
@@ -43,18 +65,30 @@ rules:
   docs-supported-functions: todo
   docs-troubleshooting: todo
   docs-use-cases: todo
-  dynamic-devices: todo
+  dynamic-devices: done
   entity-category: todo
-  entity-device-class: todo
-  entity-disabled-by-default: todo
-  entity-translations: todo
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: exempt
+    comment: All entities are deliberately visible by default.
+  entity-translations: done
   exception-translations: todo
   icon-translations: todo
-  reconfiguration-flow: todo
-  repair-issues: todo
-  stale-devices: todo
+  reconfiguration-flow: done
+  repair-issues:
+    status: exempt
+    comment: No user-actionable repair scenarios apply to this integration.
+  stale-devices:
+    status: exempt
+    comment: >-
+      Devices are virtual and fully managed through the options flow;
+      there are no stale physical devices to remove.
 
   # Platinum
-  async-dependency: todo
-  inject-websession: todo
+  async-dependency:
+    status: exempt
+    comment: No external dependencies.
+  inject-websession:
+    status: exempt
+    comment: No HTTP communication.
   strict-typing: todo

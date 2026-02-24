@@ -278,6 +278,7 @@ FLOWS = {
         "green_planet_energy",
         "growatt_server",
         "guardian",
+        "ha_solar_dispatcher",
         "habitica",
         "hanna",
         "harmony",
