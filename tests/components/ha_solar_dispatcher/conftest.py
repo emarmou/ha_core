@@ -20,6 +20,7 @@ from homeassistant.components.ha_solar_dispatcher.const import (
     CONF_GRID_INVERT,
     CONF_SCAN_INTERVAL,
     DOMAIN,
+    DispatchPriority,
 )
 from homeassistant.core import HomeAssistant
 
@@ -38,7 +39,7 @@ DEVICE_SWITCH = "switch.ev_charger"
 MOCK_DEVICE: dict[str, Any] = {
     CONF_DEVICE_ID: DEVICE_ID,
     CONF_DEVICE_NAME: "EV Charger",
-    CONF_DEVICE_PRIORITY: 1,
+    CONF_DEVICE_PRIORITY: DispatchPriority.NORMAL,
     CONF_DEVICE_MIN_BATTERY_STATE: 0,
     CONF_DEVICE_ESTIMATED_POWER: 1500,
     CONF_DEVICE_SWITCH_ENTITY: DEVICE_SWITCH,
