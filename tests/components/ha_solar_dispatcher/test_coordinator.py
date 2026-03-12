@@ -20,6 +20,7 @@ from homeassistant.components.ha_solar_dispatcher.const import (
     CONF_GRID_INVERT,
     CONF_SCAN_INTERVAL,
     DOMAIN,
+    DispatchPriority,
 )
 from homeassistant.components.ha_solar_dispatcher.coordinator import (
     SolarDispatcherCoordinator,
@@ -390,3 +391,70 @@ async def test_unavailable_switch_is_skipped(hass: HomeAssistant) -> None:
 
     mock_on.assert_not_called()
     mock_off.assert_not_called()
+
+
+# ── Priority preemption ───────────────────────────────────────────────────────
+
+
+async def test_high_priority_device_preempts_lower_priority_device(
+    hass: HomeAssistant,
+) -> None:
+    """Low-priority device turned off when a high-priority device can be served.
+
+    Cycle 1 — surplus 1400 W:
+      Device B (HIGH, 1800 W) cannot turn on (1800 > 1400).
+      Device A (LOW,  1300 W) turns on      (1300 ≤ 1400).
+
+    Cycle 2 — surplus rises to 1800 W:
+      Device B claims the surplus first (1800 ≤ 1800) → surplus drops to 0 W.
+      Device A is ON with surplus = 0 ≤ 0            → turned off.
+
+    The net effect is that the algorithm preempts the lower-priority device
+    to make room for the higher-priority one.
+    """
+    _DEVICE_A_ID = DEVICE_ID
+    _DEVICE_B_ID = _DEVICE_2_ID
+    _SWITCH_A = DEVICE_SWITCH
+    _SWITCH_B = _SWITCH_2
+
+    device_a = {
+        CONF_DEVICE_ID: _DEVICE_A_ID,
+        CONF_DEVICE_NAME: "Device A",
+        CONF_DEVICE_PRIORITY: DispatchPriority.LOW,
+        CONF_DEVICE_MIN_BATTERY_STATE: 0,
+        CONF_DEVICE_ESTIMATED_POWER: 1300,
+        CONF_DEVICE_SWITCH_ENTITY: _SWITCH_A,
+    }
+    device_b = {
+        CONF_DEVICE_ID: _DEVICE_B_ID,
+        CONF_DEVICE_NAME: "Device B",
+        CONF_DEVICE_PRIORITY: DispatchPriority.HIGH,
+        CONF_DEVICE_MIN_BATTERY_STATE: 0,
+        CONF_DEVICE_ESTIMATED_POWER: 1800,
+        CONF_DEVICE_SWITCH_ENTITY: _SWITCH_B,
+    }
+
+    # ── Cycle 1: only device A can be served ─────────────────────────────────
+    hass.states.async_set(GRID_ENTITY, "1400")
+    hass.states.async_set(_SWITCH_A, STATE_OFF)
+    hass.states.async_set(_SWITCH_B, STATE_OFF)
+    coordinator = _make_coordinator(hass, devices=[device_a, device_b])
+
+    _, mock_on, mock_off = await _run(coordinator)
+
+    mock_on.assert_called_once_with(_SWITCH_A)
+    mock_off.assert_not_called()
+
+    # ── Cycle 2: surplus exactly covers device B; device A is preempted ──────
+    # With 1800 W surplus, device B (1800 W, high priority) turns on first,
+    # leaving 0 W. Device A (ON, low priority) sees surplus ≤ 0 and turns off.
+    hass.states.async_set(GRID_ENTITY, "1800")
+    hass.states.async_set(_SWITCH_A, STATE_ON)  # Result of cycle 1
+    hass.states.async_set(_SWITCH_B, STATE_OFF)
+
+    data, mock_on, mock_off = await _run(coordinator)
+
+    mock_on.assert_called_once_with(_SWITCH_B)
+    mock_off.assert_called_once_with(_SWITCH_A)
+    # After B turns on (−1800 W) and A turns off (+1300 W): 1800 − 1800 + 1300
+    assert data.surplus == pytest.approx(1300)
