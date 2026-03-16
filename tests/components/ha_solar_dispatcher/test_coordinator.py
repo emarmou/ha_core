@@ -49,7 +49,7 @@ _SWITCH_2 = "switch.water_heater"
 _BASE_DEVICE: dict[str, Any] = {
     CONF_DEVICE_ID: DEVICE_ID,
     CONF_DEVICE_NAME: "EV Charger",
-    CONF_DEVICE_PRIORITY: 1,
+    CONF_DEVICE_PRIORITY: DispatchPriority.NORMAL,
     CONF_DEVICE_MIN_BATTERY_STATE: 0,
     CONF_DEVICE_ESTIMATED_POWER: 1500,
     CONF_DEVICE_SWITCH_ENTITY: DEVICE_SWITCH,
@@ -315,13 +315,13 @@ async def test_actual_power_fallback_to_estimated(hass: HomeAssistant) -> None:
 
 
 async def test_priority_order_respected(hass: HomeAssistant) -> None:
-    """Higher-priority (lower number) device must receive budget first."""
+    """Higher-priority device must receive budget first."""
     # Only 1800 W available — enough for device_1 (1500 W) but not device_2 (1500 W).
-    device_1 = {**_BASE_DEVICE, CONF_DEVICE_PRIORITY: 1}
+    device_1 = {**_BASE_DEVICE, CONF_DEVICE_PRIORITY: DispatchPriority.HIGH}
     device_2 = {
         CONF_DEVICE_ID: _DEVICE_2_ID,
         CONF_DEVICE_NAME: "Water Heater",
-        CONF_DEVICE_PRIORITY: 2,
+        CONF_DEVICE_PRIORITY: DispatchPriority.LOW,
         CONF_DEVICE_MIN_BATTERY_STATE: 0,
         CONF_DEVICE_ESTIMATED_POWER: 1500,
         CONF_DEVICE_SWITCH_ENTITY: _SWITCH_2,
@@ -343,11 +343,11 @@ async def test_two_devices_both_turned_on_with_enough_surplus(
     hass: HomeAssistant,
 ) -> None:
     """When surplus covers both devices, both must be turned on."""
-    device_1 = {**_BASE_DEVICE, CONF_DEVICE_PRIORITY: 1}
+    device_1 = {**_BASE_DEVICE, CONF_DEVICE_PRIORITY: DispatchPriority.HIGH}
     device_2 = {
         CONF_DEVICE_ID: _DEVICE_2_ID,
         CONF_DEVICE_NAME: "Water Heater",
-        CONF_DEVICE_PRIORITY: 2,
+        CONF_DEVICE_PRIORITY: DispatchPriority.LOW,
         CONF_DEVICE_MIN_BATTERY_STATE: 0,
         CONF_DEVICE_ESTIMATED_POWER: 1200,
         CONF_DEVICE_SWITCH_ENTITY: _SWITCH_2,
@@ -401,13 +401,14 @@ async def test_high_priority_device_preempts_lower_priority_device(
 ) -> None:
     """Low-priority device turned off when a high-priority device can be served.
 
-    Cycle 1 — surplus 1400 W:
-      Device B (HIGH, 1800 W) cannot turn on (1800 > 1400).
-      Device A (LOW,  1300 W) turns on      (1300 ≤ 1400).
+    Cycle 1 — grid 1400 W (no devices running):
+      Device B (HIGH, 1800 W) cannot turn on (1800 > 1400 surplus).
+      Device A (LOW,  1300 W) turns on      (1300 ≤ 1400 surplus).
 
-    Cycle 2 — surplus rises to 1800 W:
-      Device B claims the surplus first (1800 ≤ 1800) → surplus drops to 0 W.
-      Device A is ON with surplus = 0 ≤ 0            → turned off.
+    Cycle 2 — grid 500 W (Device A is ON consuming 1300 W, solar = 1800 W):
+      Direct surplus = 500 W < 1800 W, so B cannot turn on without preemption.
+      Preemption budget = 500 (surplus) + 1300 (A's power) = 1800 W ≥ 1800 W.
+      → Turn off A (+1300 W), turn on B (−1800 W): surplus = 500 + 1300 − 1800 = 0 W.
 
     The net effect is that the algorithm preempts the lower-priority device
     to make room for the higher-priority one.
@@ -445,10 +446,11 @@ async def test_high_priority_device_preempts_lower_priority_device(
     mock_on.assert_called_once_with(_SWITCH_A)
     mock_off.assert_not_called()
 
-    # ── Cycle 2: surplus exactly covers device B; device A is preempted ──────
-    # With 1800 W surplus, device B (1800 W, high priority) turns on first,
-    # leaving 0 W. Device A (ON, low priority) sees surplus ≤ 0 and turns off.
-    hass.states.async_set(GRID_ENTITY, "1800")
+    # ── Cycle 2: device A is running; solar has risen so total budget = 1800 W ─
+    # Grid reads 500 W (= 1800 W solar − 1300 W consumed by A).
+    # Preemption: surplus(500) + A's power(1300) = 1800 W ≥ B's need(1800 W).
+    # → Turn off A (+1300 W), turn on B (−1800 W): final surplus = 0 W.
+    hass.states.async_set(GRID_ENTITY, str(1800 - 1300))
     hass.states.async_set(_SWITCH_A, STATE_ON)  # Result of cycle 1
     hass.states.async_set(_SWITCH_B, STATE_OFF)
 
@@ -456,5 +458,5 @@ async def test_high_priority_device_preempts_lower_priority_device(
 
     mock_on.assert_called_once_with(_SWITCH_B)
     mock_off.assert_called_once_with(_SWITCH_A)
-    # After B turns on (−1800 W) and A turns off (+1300 W): 1800 − 1800 + 1300
-    assert data.surplus == pytest.approx(1300)
+    # After A turns off (+1300 W) and B turns on (−1800 W): 500 + 1300 − 1800 = 0 W.
+    assert data.surplus == pytest.approx(0)
