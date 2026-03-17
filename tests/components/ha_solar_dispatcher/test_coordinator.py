@@ -132,9 +132,12 @@ async def test_battery_charge_adds_to_surplus(hass: HomeAssistant) -> None:
 
 
 async def test_allowance_adds_to_surplus(hass: HomeAssistant) -> None:
-    """Allowance entity value must be added to the computed surplus."""
+    """Allowance ratio must scale the (grid + battery) surplus.
+
+    grid = -1000 W, allowance_ratio = 0.1 → surplus = -1000 × 1.1 = -1100 W.
+    """
     hass.states.async_set(GRID_ENTITY, "-1000")
-    hass.states.async_set(ALLOWANCE_ENTITY, "300")
+    hass.states.async_set(ALLOWANCE_ENTITY, "0.1")
     coordinator = _make_coordinator(
         hass,
         extra_data={"allowance_entity": ALLOWANCE_ENTITY},
@@ -142,7 +145,7 @@ async def test_allowance_adds_to_surplus(hass: HomeAssistant) -> None:
 
     data, _, _ = await _run(coordinator)
 
-    assert data.surplus == pytest.approx(-700)
+    assert data.surplus == pytest.approx(-1100)
 
 
 async def test_battery_state_returned_in_data(hass: HomeAssistant) -> None:
